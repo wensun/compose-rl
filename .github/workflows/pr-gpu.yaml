@@ -24,20 +24,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: "gpu-2.3.1"
-          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
-          markers: "gpu"
-          pytest_command: "coverage run -m pytest"
-          pip_deps: "[gpu]"
+        - name: "gpu1-llmfoundry2.5.1-1"
+          container: mosaicml/llm-foundry:2.5.1_cu124-latest
           gpu_num: 1
-          python_version: 3.11
+          markers: "gpu"
+          pip_deps: "[all]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.2.2
+        - name: "gpu2-llmfoundry2.5.1-1"
+          container: mosaicml/llm-foundry:2.5.1_cu124-latest
+          gpu_num: 2
+          markers: "gpu"
+          pip_deps: "[all]"
+          pytest_command: "coverage run -m pytest"
+          ci_repo_gpu_test_ref: v0.2.2
     steps:
-    - name: ${{ matrix.name }}
-      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+    # - name: ${{ matrix.name }}
+    - name: Run PR GPU Tests
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.2.2
       with:
         container: ${{ matrix.container }}
         git_repo: databricks/Compose-RL
-        mcloud_timeout: 1800
+        mcloud_timeout: 3600
         name: ${{ matrix.name }}
         pip_deps: ${{ matrix.pip_deps }}
         pytest_command: ${{ matrix.pytest_command }}
@@ -45,3 +53,4 @@ jobs:
         python_version: ${{ matrix.python_version }}
         mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
         gpu_num: ${{ matrix.gpu_num }}
+        composer_package_name: mosaicml  # Required as Composer is built from source
