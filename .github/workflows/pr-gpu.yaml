@@ -19,7 +19,7 @@ jobs:
   pytest-gpu:
     name: ${{ matrix.name }}
     runs-on: linux-ubuntu-latest
-    if: github.repository_owner == 'databricks-mosaic'
+    if: github.repository_owner == 'databricks'
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +36,7 @@ jobs:
       uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
       with:
         container: ${{ matrix.container }}
-        git_repo: databricks-mosaic/rlhf
+        git_repo: databricks/Compose-RL
         mcloud_timeout: 1800
         name: ${{ matrix.name }}
         pip_deps: ${{ matrix.pip_deps }}
