@@ -29,6 +29,7 @@ jobs:
           gpu_num: 1
           markers: "gpu"
           pip_deps: "[all]"
+          python_version: 3.11
           pytest_command: "coverage run -m pytest"
           ci_repo_gpu_test_ref: v0.2.2
         - name: "gpu2-llmfoundry2.5.1-1"
@@ -36,6 +37,7 @@ jobs:
           gpu_num: 2
           markers: "gpu"
           pip_deps: "[all]"
+          python_version: 3.11
           pytest_command: "coverage run -m pytest"
           ci_repo_gpu_test_ref: v0.2.2
     steps:
