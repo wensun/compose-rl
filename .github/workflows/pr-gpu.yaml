@@ -1,0 +1,47 @@
+name: PR GPU tests
+
+on:
+  push:
+    branches:
+    - main
+    - release/*
+  pull_request:
+    branches:
+    - main
+    - release/*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  pytest-gpu:
+    name: ${{ matrix.name }}
+    runs-on: linux-ubuntu-latest
+    if: github.repository_owner == 'databricks-mosaic'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: "gpu-2.3.1"
+          container: mosaicml/pytorch:2.3.1_cu121-python3.11-ubuntu20.04
+          markers: "gpu"
+          pytest_command: "coverage run -m pytest"
+          pip_deps: "[gpu]"
+          gpu_num: 1
+          python_version: 3.11
+    steps:
+    - name: ${{ matrix.name }}
+      uses: mosaicml/ci-testing/.github/actions/pytest-gpu@v0.1.0
+      with:
+        container: ${{ matrix.container }}
+        git_repo: databricks-mosaic/rlhf
+        mcloud_timeout: 1800
+        name: ${{ matrix.name }}
+        pip_deps: ${{ matrix.pip_deps }}
+        pytest_command: ${{ matrix.pytest_command }}
+        pytest_markers: ${{ matrix.markers }}
+        python_version: ${{ matrix.python_version }}
+        mcloud_api_key: ${{ secrets.MCLOUD_API_KEY }}
+        gpu_num: ${{ matrix.gpu_num }}
