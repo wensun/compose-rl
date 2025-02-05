@@ -30,7 +30,7 @@ jobs:
           safe_directory: RLHF
     steps:
     - name: Run PR CPU Tests
-      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.2.2
+      uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.2
       with:
         container: ${{ matrix.container }}
         name: ${{ matrix.name }}
