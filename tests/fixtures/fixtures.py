@@ -6,7 +6,7 @@ import copy
 import pytest
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
-
+@pytest.fixture
 def tiny_gpt2_tokenizer_helper():
     hf_tokenizer = AutoTokenizer.from_pretrained('gpt2')
     hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
