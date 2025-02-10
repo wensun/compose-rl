@@ -27,7 +27,6 @@ jobs:
           pytest_markers: "not gpu"
           pytest_command: "coverage run -m pytest"
           pip_deps: "[cpu]"
-          safe_directory: Compose-RL
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
