@@ -47,7 +47,7 @@ jobs:
         pip_deps: ${{ matrix.pip_deps }}
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.pytest_markers }}
-        safe_directory: ${{ matrix.safe_directory }}
+        safe_directory: Compose-RL
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
