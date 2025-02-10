@@ -31,6 +31,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        path: .
+    - name: Debug directory structure
+      run: |
+        pwd
+        ls -la
+        find . -name "conftest.py"
+
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.3
       with:
