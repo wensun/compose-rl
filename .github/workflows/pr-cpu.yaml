@@ -16,6 +16,7 @@ concurrency:
 jobs:
   pytest-cpu:
     name: ${{ matrix.name }}
+    if: github.repository_owner == 'databricks'
     runs-on: linux-ubuntu-latest
     container: ${{ matrix.container }}
     strategy:
