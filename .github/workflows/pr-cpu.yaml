@@ -27,8 +27,6 @@ jobs:
           pip_deps: "[cpu]"
           pytest_command: "coverage run -m pytest"
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.3
       with:
