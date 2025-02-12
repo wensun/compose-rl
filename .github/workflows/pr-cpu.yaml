@@ -26,7 +26,7 @@ jobs:
           container: mosaicml/pytorch:2.5.1_cpu-python3.11-ubuntu22.04
           markers: "not gpu and not only_release"
           pip_deps: "[cpu]"
-          pytest_command: "coverage run -m pytest --import-mode=importlib"
+          pytest_command: "coverage run -m pytest"
     steps:
     - name: Run PR CPU Tests
       uses: mosaicml/ci-testing/.github/actions/pytest-cpu@v0.3.3
