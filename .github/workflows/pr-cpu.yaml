@@ -36,4 +36,4 @@ jobs:
         pip_deps: ${{ matrix.pip_deps }}
         pytest_command: ${{ matrix.pytest_command }}
         pytest_markers: ${{ matrix.markers }}
-        safe_directory: compose-rl
+        safe_directory: Compose-RL
