@@ -28,7 +28,7 @@ You'll find in this repo:
 
 Clone the repository and install the dependencies:
 
-```bash
+```
 git clone https://github.com/databricks/Compose-RL.git
 cd Compose-RL
 pip install -e .[gpu]
