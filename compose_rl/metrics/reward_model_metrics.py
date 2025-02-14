@@ -42,7 +42,7 @@ class PairwiseRewardClassificationAccuracy(Metric):
         return self.correct / self.total
 
 
-class ClassificationAccuracy(Metric):
+class BinaryRewardClassificationAccuracy(Metric):
     """Classification accuracy metric.
 
     Computes the accuracy of a classifier by comparing predictions from logits
@@ -55,7 +55,6 @@ class ClassificationAccuracy(Metric):
 
     def __init__(
         self,
-        binary: bool = True,
         threshold: float = 0.5,
         dist_sync_on_step: bool = False,
         **kwargs: Any,
@@ -69,7 +68,6 @@ class ClassificationAccuracy(Metric):
             dist_sync_on_step: Synchronize metric state across processes
         """
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.binary = binary
         self.threshold = threshold
 
         self.add_state(
@@ -91,14 +89,9 @@ class ClassificationAccuracy(Metric):
         targets = batch['labels'].squeeze(-1)
         assert logits.shape[0] == targets.shape[0], 'Batch sizes must match'
 
-        if self.binary:
-            # Binary classification
-            probs = torch.sigmoid(logits.squeeze())
-            predictions = (probs > self.threshold).long()
-        else:
-            # Multi-class classification
-            probs = torch.softmax(logits, dim=1)
-            predictions = torch.argmax(probs, dim=1)
+        # TODO (raj): Handle multi-class classification with logging
+        probs = torch.sigmoid(logits.squeeze())
+        predictions = (probs > self.threshold).long()
 
         self.correct += (predictions == targets).sum().detach().cpu()
         self.total += targets.shape[0]

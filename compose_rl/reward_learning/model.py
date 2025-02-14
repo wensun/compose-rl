@@ -4,7 +4,7 @@
 """Reward Model Composer Implementation."""
 
 import logging
-from typing import Any, Mapping, MutableMapping, Optional, Union
+from typing import Any, Mapping, MutableMapping, Optional
 
 import torch
 from llmfoundry.models import ComposerMPTCausalLM
