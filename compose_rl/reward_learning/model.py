@@ -50,6 +50,12 @@ class ComposerHFPairwiseRewardModel(
             'return_logits': return_lm_logits,
         }
 
+        if 'config_overrides' in kwargs:
+            config_overrides.update(kwargs.pop('config_overrides'))
+
+        self.min_threshold = kwargs.pop('min_threshold', None)
+        self.max_threshold = kwargs.pop('max_threshold', None)
+
         super().__init__(
             tokenizer=tokenizer,
             use_train_metrics=use_train_metrics,
@@ -115,6 +121,12 @@ class ComposerHFClassifierRewardModel(
         config_overrides = {
             'return_logits': return_lm_logits,
         }
+
+        if 'config_overrides' in kwargs:
+            config_overrides.update(kwargs.pop('config_overrides'))
+
+        self.min_threshold = kwargs.pop('min_threshold', None)
+        self.max_threshold = kwargs.pop('max_threshold', None)
 
         super().__init__(
             tokenizer=tokenizer,

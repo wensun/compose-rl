@@ -57,7 +57,7 @@ class UnifiedTokenizedDataset(IterableDataset):
                 if result is not None:
                     yield result
             elif self.dataset_type == 'classifier':
-                yield self._dummy_process_classifier_sample(sample)
+                yield self._process_classifier_sample(sample)
 
     def _process_preference_sample(self, sample: Any):
         """Process a preference sample.
@@ -106,7 +106,7 @@ class UnifiedTokenizedDataset(IterableDataset):
 
         return {'prompt': np.asarray(encoded_prompt).tobytes()}
 
-    def _dummy_process_classifier_sample(self, sample: Any):
+    def _process_classifier_sample(self, sample: Any):
         """A dummy process a classifier sample.
 
         Args:
@@ -179,9 +179,7 @@ def main(
 
             print('Converting to MDS format')
 
-            for i, sample in enumerate(dataset):
-                if i == 1000:
-                    break
+            for sample in dataset:
                 num_written += 1
                 out.write(sample)
 

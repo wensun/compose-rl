@@ -88,7 +88,6 @@ class ClassificationAccuracy(Metric):
         """
         del output_logits
         logits = batch['output_scores']
-        # TODO: this might break something, need to double check
         targets = batch['labels'].squeeze(-1)
         assert logits.shape[0] == targets.shape[0], 'Batch sizes must match'
 
