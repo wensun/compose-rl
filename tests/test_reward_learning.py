@@ -24,8 +24,10 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 from transformers.models.llama.modeling_llama import LlamaFlashAttention2
 
-from compose_rl.data import (finegrained_preference_dataset_collate_fn,
-                             pairwise_preference_dataset_collate_fn,)
+from compose_rl.data import (
+    finegrained_preference_dataset_collate_fn,
+    pairwise_preference_dataset_collate_fn,
+)
 from compose_rl.reward_learning.hf_utils import AutoModelForCausalLMWithRM
 from tests.common import FineGrainedPreference, PairwisePreference, world_size
 
@@ -211,21 +213,23 @@ def test_forward_backward(
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize(
-    'model_config', [
+    'model_config',
+    [
         (
-            'hf_pairwise_rm', PairwisePreference,
-            pairwise_preference_dataset_collate_fn
+            'hf_pairwise_rm',
+            PairwisePreference,
+            pairwise_preference_dataset_collate_fn,
         ),
         (
-            'hf_classifier_rm', FineGrainedPreference,
-            finegrained_preference_dataset_collate_fn
+            'hf_classifier_rm',
+            FineGrainedPreference,
+            finegrained_preference_dataset_collate_fn,
         ),
-    ]
+    ],
 )
 def test_hf_train(
     world_size: int,
-    fsdp_config: dict[str, Any],
-    model_config: tuple[str, type, callable],
+    model_config: dict[str, Any],
 ):
     model_type, dataset_cls, collate_fn = model_config
     model_name = 'jdchang/llama3-small'
