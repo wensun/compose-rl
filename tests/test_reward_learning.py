@@ -212,8 +212,9 @@ def test_forward_backward(
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('fsdp_config', [None, {}])
 @pytest.mark.parametrize(
-    'model_config',
+    'model_params',
     [
         (
             'hf_pairwise_rm',
@@ -229,9 +230,10 @@ def test_forward_backward(
 )
 def test_hf_train(
     world_size: int,
-    model_config: dict[str, Any],
+    model_params: tuple[str, type[PairwisePreference], Any],
+    fsdp_config: dict[str, Any],
 ):
-    model_type, dataset_cls, collate_fn = model_config
+    model_type, dataset_cls, collate_fn = model_params
     model_name = 'jdchang/llama3-small'
     tokenizer = AutoTokenizer.from_pretrained(model_name, pad_token='[PAD]')
     max_seq_len = 10
