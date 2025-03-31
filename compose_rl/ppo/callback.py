@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import gc
 import logging
+import os
+import socket
 import time
 from itertools import chain
-from typing import Any, Union
+from typing import Any, Optional, Union
 
+import ray
 import torch
 import wandb
 from composer.core import (
@@ -27,6 +30,7 @@ from llmfoundry.interfaces import CallbackWithConfig
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from compose_rl.ppo.buffer import MinibatchRolloutBuffer
+from compose_rl.ppo.generation_utils import generate
 from compose_rl.ppo.model import ComposerHFPolicyModel, ComposerMosaicPolicy
 from compose_rl.ppo.reward_manager import (
     ReferenceOutput,
@@ -36,12 +40,13 @@ from compose_rl.ppo.reward_manager import (
 from compose_rl.registry_builders import build_kl_controller
 from compose_rl.utils import (
     add_right_padding,
+    broadcast_to_vllm,
     compute_advantages,
+    create_vllm_engines,
     dist_compute_masked_mean_and_var,
-    flip_pad_token_usage_for_generate,
-    flip_pad_token_usage_in_ffn,
     get_decoded_sequence,
     get_log_probs,
+    init_process_group,
     mask_eos,
     masked_mean,
     switch_left_to_right_padding,
@@ -57,6 +62,7 @@ log = logging.getLogger(__name__)
 
 def env_generate(
     actor_critic: Policy,
+    vllm_engines: Optional[list],
     reward_manager: RewardManager,
     batch: dict,
     max_gen_len: int,
@@ -105,9 +111,6 @@ def env_generate(
 
     batch_size, _ = prompt_tokens.shape
 
-    policy = actor_critic.model
-    policy.eval()
-
     eos_token_id = tokenizer.eos_token_id
     pad_token_id = tokenizer.pad_token_id
 
@@ -127,37 +130,17 @@ def env_generate(
             cur_device = prompt_tokens.device
             prompt_dtype = prompt_tokens.dtype
 
-            # Adding a dummy forwards call.
-            # We need this otherwise FSDP throws an error during a standard forward pass.
-            policy(
-                torch.tensor([[0]], dtype=torch.long, device=cur_device),
-                attention_mask=torch.tensor([[1]],
-                                            dtype=torch.bool,
-                                            device=cur_device),
-            )
-
-            # Generate doesn't work if we unpad the FFN. So we need to check if we
-            # need to flip the flag in the model.
-            flipped_usage = flip_pad_token_usage_for_generate(policy)
-
             start_gen_time = time.time()
-            # We don't need to include EOS tokens since we mask out EOS tokens below
-            generated_dict = policy.generate(
-                prompt_tokens,
-                max_new_tokens=max_gen_len,
-                return_dict_in_generate=True,
-                synced_gpus=True,
-                attention_mask=batch['prompt_attention_mask'],
-                pad_token_id=pad_token_id,
-                **generation_kwargs,
+
+            sequences = generate(
+                actor_critic,
+                vllm_engines,
+                max_gen_len,
+                batch,
+                pad_token_id, # type: ignore
+                tokenizer,
+                generation_kwargs,
             )
-
-            # We should flip the flag back after generate as needed.
-            if flipped_usage:
-                flip_pad_token_usage_in_ffn(policy)
-
-            # Sequences are [batch, seq_len + generated_len], covering the initial prompt and generated values
-            sequences = generated_dict['sequences']  # type: ignore
 
             num_tokens_generated = sequences.size(1) - prompt_tokens.size(1)
 
@@ -390,6 +373,20 @@ class PPOCallback(CallbackWithConfig):
                 train_config['python_log_level'].upper(),
             )
 
+        self.vllm_engines = None
+        self.num_vllm_engines = 0
+        if 'num_vllm_engines' in var_config:
+            self.num_vllm_engines = var_config['num_vllm_engines']
+            self.vllm_model_name = train_config['model'][
+                'pretrained_model_name_or_path']
+
+            self.vllm_tensor_parallel_size = var_config.get(
+                'vllm_tensor_parallel_size',
+                1,
+            )
+            self.vllm_sync_backend = var_config.get('vllm_sync_backend', 'nccl')
+            self.test_prompt = 'Compose an engaging travel blog post about a recent trip to Hawaii, highlighting cultural experiences and must-see attractions.'
+
     def init(self, state: State, logger: Logger):
         self.pad_token_idx = state.model.tokenizer.pad_token_id  # type: ignore
         self.actor_critic = state.model
@@ -412,11 +409,9 @@ class PPOCallback(CallbackWithConfig):
         # The KL penalty in the reward should only exist if we aren't minimizing
         # the KL directly in the loss.
         kl_penalty_in_reward = True
-        if hasattr(
-            self.actor_critic.model.config,  # type: ignore
-            'compute_kl_loss',
-        ):
-            kl_penalty_in_reward = not self.actor_critic.model.config.compute_kl_loss  # type: ignore
+
+        if hasattr(self.actor_critic, 'compute_kl_loss'):
+            kl_penalty_in_reward = not self.actor_critic.compute_kl_loss
 
         self.reward_manager = RewardManager(
             config=self.reward_cfg,
@@ -435,6 +430,9 @@ class PPOCallback(CallbackWithConfig):
             truncation=True,
             return_attention_mask=True,
         )
+
+        if self.num_vllm_engines > 0:
+            self._create_vllm_engines()
 
     def before_load(self, state: State, logger: Logger):
         del logger
@@ -458,8 +456,11 @@ class PPOCallback(CallbackWithConfig):
         del logger  # unused
 
         batch = self._get_next_iter_prompts()
-        # Update dataloader
         batch = state.device.batch_to_device(batch)
+
+        if self.vllm_engines is not None:
+            self._update_inference_model(batch)
+
         self._interact_with_env(batch)
         # Reset and initialize state train dataloader
         log.warning(
@@ -568,6 +569,7 @@ class PPOCallback(CallbackWithConfig):
 
             env_outputs, prompts_and_gens, ref_outputs, all_rewards_dict = env_generate(
                 actor_critic=self.actor_critic,  # pyright: ignore
+                vllm_engines=self.vllm_engines,
                 reward_manager=self.reward_manager,
                 batch=gen_batch,
                 max_gen_len=self.max_gen_len,
@@ -771,6 +773,76 @@ class PPOCallback(CallbackWithConfig):
 
     def _increment_rl_iter(self):
         self.iter_num += 1
+
+    def _create_vllm_engines(self):
+        """Creates the vLLM engines for inference."""
+        self.model_update_group = None
+        self.vllm_engines = []
+
+        if os.getenv('NODE_RANK',
+                     None) == '0' and os.getenv('LOCAL_RANK', None) == '0':
+            log.info('Creating vLLM engines.')
+
+            os.environ['NCCL_CUMEM_ENABLE'] = '0'
+            os.environ['RAY_BACKEND_LOG_LEVEL'] = 'DEBUG'
+            os.environ['RAY_DEBUG_LOGS'] = '1'
+
+            world_size = self.num_vllm_engines * self.vllm_tensor_parallel_size + 1
+
+            self.vllm_engines = create_vllm_engines(
+                num_engines=self.num_vllm_engines,
+                tensor_parallel_size=self.vllm_tensor_parallel_size,
+                enforce_eager=True,
+                pretrain=self.vllm_model_name,
+                revision=None,
+                seed=1,
+                enable_prefix_caching=False,
+                max_model_len=self.max_seq_len,
+            )
+            log.info('After creating vLLM engines.')
+
+            master_address = ray._private.services.get_node_ip_address( # type: ignore
+            )
+            with socket.socket() as sock:
+                sock.bind(('', 0))
+                master_port = sock.getsockname()[1]
+
+            refs = [
+                engine.init_process_group.remote(
+                    master_address,
+                    master_port,
+                    i * self.vllm_tensor_parallel_size + 1,
+                    world_size,
+                    'compose-rl',
+                    backend=self.vllm_sync_backend,
+                ) for i, engine in enumerate(self.vllm_engines)
+            ]
+
+            self.model_update_group = init_process_group(
+                backend=self.vllm_sync_backend,
+                init_method=f'tcp://{master_address}:{master_port}',
+                world_size=world_size,
+                rank=0,
+                group_name='compose-rl',
+            )
+            ray.get(refs)
+
+        dist.barrier()
+        log.info('All ranks have completed the vLLM engine create function.')
+
+    def _update_inference_model(self, batch: dict[str, torch.Tensor]):
+        start_time = time.time()
+        log.info('Before broadcast to vLLM')
+        assert self.vllm_engines is not None
+        broadcast_to_vllm(
+            self.actor_critic,
+            self.vllm_engines,
+            self.model_update_group,
+            batch,
+        )
+        log.info('Finished broadcasting to vLLM')
+        log.info(f'Took: {time.time() - start_time} to broadcast to vllm.')
+        dist.barrier()
 
     def state_dict(self):
         return {
