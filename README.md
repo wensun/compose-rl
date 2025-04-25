@@ -28,7 +28,8 @@ You'll find in this repo:
 
 Clone the repository and install the dependencies:
 
-```
+<!--pytest.mark.skip-->
+```bash
 git clone https://github.com/databricks/compose-rl.git
 cd compose-rl
 pip install -e .[gpu]
@@ -49,7 +50,8 @@ Below is the set of commands to run to prepare datasets into the appropriate Mos
 
 Below is the command to prepare preference data -- which can be used for reward model or offline RL (e.g. DPO) training:
 
-```
+<!--pytest.mark.skip-->
+```bash
 cd scripts
 python data/unified_tokenize_dataset.py --dataset_name allenai/ultrafeedback_binarized_cleaned \
 --local_dir pref_data \
@@ -60,7 +62,8 @@ python data/unified_tokenize_dataset.py --dataset_name allenai/ultrafeedback_bin
 
 Below is the command to prepare prompt data -- which can be used for online RL (e.g. PPO) training:
 
-```
+<!--pytest.mark.skip-->
+```bash
 cd scripts
 python data/unified_tokenize_dataset.py --dataset_name allenai/ultrafeedback_binarized_cleaned \
 --local_dir prompt_data \
@@ -68,6 +71,25 @@ python data/unified_tokenize_dataset.py --dataset_name allenai/ultrafeedback_bin
 --tokenizer_name meta-llama/Llama-3.1-8B-Instruct \
 --split train_prefs
 ```
+
+To further enable online RL with [verifiable rewards](https://arxiv.org/abs/2411.15124) you can use the following command:
+
+<!--pytest.mark.skip-->
+```bash
+cd scripts
+python data/unified_tokenize_dataset.py --dataset_name <hf_dataset_name> \
+--local_dir verifiable_data \
+--dataset_type verifiable_answers \
+--tokenizer_name meta-llama/Llama-3.1-8B-Instruct \
+--split train \
+```
+
+We currently support the following two HuggingFace datasets for verifiable rewards:
+
+- GMS8k: `openai/gsm8k`
+- MATH: `DigitalLearningGmbH/MATH-lighteval`
+
+The data preparation scripts also supports additional arguments for specifying the subset of the HuggingFace dataset `--subset <str>` and max sequence length `--max_length <int>`
 
 ### Model training
 
@@ -77,7 +99,8 @@ Below are the scripts to launch training runs assuming you ran the data preparat
 
 Below is the command to run reward model training:
 
-```
+<!--pytest.mark.skip-->
+```bash
 composer llm-foundry/scripts/train/train.py \
 compose-rl/yamls/local_reward.yaml \
 train_loader.dataset.local=/compose-rl/scripts/pref_data/ \
@@ -88,7 +111,8 @@ train_loader.dataset.split=train_prefs
 
 Below is the command to run for DPO training (along with its variants):
 
-```
+<!--pytest.mark.skip-->
+```bash
 composer llm-foundry/scripts/train/train.py \
 compose-rl/yamls/local_dpo.yaml \
 train_loader.dataset.local=/compose-rl/scripts/pref_data/ \
@@ -101,7 +125,8 @@ For DPO we support other variants of DPO including: [Reward Aware Preference Opt
 
 Below is the command to run Online PPO training:
 
-```
+<!--pytest.mark.skip-->
+```bash
 composer llm-foundry/scripts/train/train.py \
 compose-rl/yamls/local_ppo.yaml \
 train_loader.dataset.local=/compose-rl/scripts/prompt_data/ \
@@ -123,7 +148,6 @@ In order to add new offline RL based algorithms, we need to add a new `Enum` to 
 
 **Creating new Online RL Variants**
 In order to create new online RL based algorithms, we need to add a new `forward` and `loss` function into `ppo/modeling_utils.py`. From here we need to define a new model in `ppo/model.py`.
-
 
 **A high level overview of LLM Foundry Plugins**
 LLM Foundry plugins allows us to take advantage of many of the functions within LLM foundry, while augmenting the code with other models and methods. Plugins requires us to define registry entrypoints into LLM foundry which is done in the `pyproject.toml` file in this repo. See the commented code around `entry points` in the file [here](https://github.com/databricks-mosaic/RLHF/blob/9f8fe135ff4c334efce95197b606f7ff0f5a3eb6/pyproject.toml#L35), where we define various entrypoints for models, dataloaders, callbacks, and metrics. For more details on plugins and its registry system see [here](https://github.com/mosaicml/llm-foundry/?tab=readme-ov-file#registry).
