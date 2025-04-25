@@ -124,6 +124,7 @@ def env_generate(
     with get_precision_context(precision):
         prompt_len = batch['prompt_len']
         verified_answers = batch.get('verified_answer', None)
+        prompt_id = batch['prompt_id']
 
         with torch.no_grad():
             cur_device = prompt_tokens.device
@@ -270,6 +271,7 @@ def env_generate(
             device_train_microbatch_values *= value_action_mask
 
             partial_env_output = {
+                'prompt_id': prompt_id,
                 'actions': actions.detach(),
                 'old_log_probs': device_train_microbatch_log_probs.detach(),
                 'obs': right_padded_obs.detach(),
@@ -354,6 +356,16 @@ class PPOCallback(CallbackWithConfig):
             'num_batches_per_update',
             1,
         )
+        # Number of generations per prompt for a single PPO epoch.
+        self.generations_per_prompt: int = var_config.get(
+            'generations_per_prompt',
+            1,
+        )
+
+        if self.num_batches_per_update % self.generations_per_prompt != 0:
+            raise ValueError(
+                f'{self.num_batches_per_update=} must be divisible by {self.generations_per_prompt=}',
+            )
 
         self.epochs_per_iteration = ensure_time(
             var_config.get('epoch_per_iteration', 1),
@@ -361,6 +373,8 @@ class PPOCallback(CallbackWithConfig):
         )
         assert self.epochs_per_iteration.unit == TimeUnit.EPOCH
 
+        # Programmatically setting the max buffer size instead of the yaml
+        var_config['buffer']['max_buffer_size'] = self.num_batches_per_update
         self.buffer = MinibatchRolloutBuffer(var_config['buffer'])
         self.kl_ctl = build_kl_controller(var_config['kl_controller'])
 
@@ -547,9 +561,10 @@ class PPOCallback(CallbackWithConfig):
 
     def _get_next_iter_prompts(self):
         """Gets the next iteration's batch of prompts."""
+        # Sample fewer batches for the Online RL interation depending on the number of generations per prompt
+        n_unique_batches = self.num_batches_per_update // self.generations_per_prompt
         batches = [
-            self._get_single_batch_prompts()
-            for _ in range(self.num_batches_per_update)
+            self._get_single_batch_prompts() for _ in range(n_unique_batches)
         ]
 
         ret_batch = {}
@@ -562,29 +577,32 @@ class PPOCallback(CallbackWithConfig):
 
             padding_key = None
             for batch in batches:
-                # For keys that do not require additional processing
-                if key in ['prompt_len', 'verified_answer']:
-                    curr_values.append(batch[key])
-                    continue
+                # Explode the batch into multiple batches for each generation
+                for _ in range(self.generations_per_prompt):
+                    # For keys that do not require additional processing
+                    if key in ['prompt_len', 'verified_answer', 'prompt_id']:
+                        curr_values.append(batch[key])
+                        continue
 
-                bs, seq_len = batch[key].shape
+                    bs, seq_len = batch[key].shape
 
-                if key == 'prompt':
-                    padding_key = self.pad_token_idx
-                    if (batch[key][:, -1] == padding_key).any():
-                        raise ValueError(
-                            'The last token in the prompt should not be the pad token. Please double '
-                            + 'check the dataloader and prompt and dataloader.',
-                        )
-                elif key == 'prompt_attention_mask':
-                    padding_key = False
+                    if key == 'prompt':
+                        padding_key = self.pad_token_idx
+                        if (batch[key][:, -1] == padding_key).any():
+                            raise ValueError(
+                                'The last token in the prompt should not be the pad token. Please double '
+                                +
+                                'check the dataloader and prompt and dataloader.',
+                            )
+                    elif key == 'prompt_attention_mask':
+                        padding_key = False
 
-                # Compute the required padding and concatenate with the batch tensor
-                pad = torch.ones(
-                    (bs, max_len - seq_len),
-                    dtype=batch[key].dtype,
-                ) * padding_key  # type: ignore
-                curr_values.append(torch.cat([pad, batch[key]], dim=-1))
+                    # Compute the required padding and concatenate with the batch tensor
+                    pad = torch.ones(
+                        (bs, max_len - seq_len),
+                        dtype=batch[key].dtype,
+                    ) * padding_key  # type: ignore
+                    curr_values.append(torch.cat([pad, batch[key]], dim=-1))
 
             # For tensor fields, use torch.cat to combine the values; for string fields, just use the list
             if isinstance(curr_values[0], torch.Tensor):
