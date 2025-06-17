@@ -96,10 +96,6 @@ class PromptStreamingDataset(StreamingDataset):
         sample = super().__getitem__(idx)
         prompt = self._read_binary_tokenized_sample(sample, 'prompt')
 
-        print('%'*10 + "sample")
-        print(sample.keys())
-        print('%'*10 + "sample")
-
         # TODO (bcui): Maybe add in an option to truncate a prompt by a given length?
         if len(prompt) + self.max_gen_len > self.max_seq_len:
             truncate_len = len(prompt) + self.max_gen_len - self.max_seq_len
@@ -132,7 +128,6 @@ class PromptStreamingDataset(StreamingDataset):
         #vstar
         vstar = sample.get('vstar', None)
         if vstar:
-            log.info("="*10 +  "Found vstar key" + "="*10)
             if isinstance(vstar, float):
                 _answer = vstar
             else:
