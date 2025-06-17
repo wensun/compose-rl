@@ -128,6 +128,7 @@ class PromptStreamingDataset(StreamingDataset):
         #vstar
         vstar = sample.get('vstar', None)
         if vstar:
+            log.info("="*10 +  "Found vstar key" + "="*10)
             if isinstance(vstar, float):
                 _answer = vstar
             else:
