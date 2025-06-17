@@ -648,7 +648,7 @@ class OnPolicyCallback(CallbackWithConfig):
                 # Explode the batch into multiple batches for each generation
                 for _ in range(self.generations_per_prompt):
                     # For keys that do not require additional processing
-                    if key in ['prompt_len', 'verified_answer', 'prompt_id']:
+                    if key in ['prompt_len', 'verified_answer', 'prompt_id', 'vstar']:
                         curr_values.append(batch[key])
                         continue
 
@@ -677,6 +677,8 @@ class OnPolicyCallback(CallbackWithConfig):
                 ret_batch[key] = torch.cat(curr_values)
             else:
                 if key == 'verified_answer':
+                    ret_batch[key] = list(flatten(curr_values))
+                elif key == 'vstar':
                     ret_batch[key] = list(flatten(curr_values))
                 else:
                     # this is an edge case that we will not hit currently, but just handling it as needed
@@ -976,6 +978,7 @@ class OnPolicyCallback(CallbackWithConfig):
         else:
             # Adding dummy advantages
             env_outs['advantages'] = torch.ones_like(env_outs['action_mask'])
+            env_outs
 
             mean_ift = masked_mean(
                 env_outs['ift_kl'],

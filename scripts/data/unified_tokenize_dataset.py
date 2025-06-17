@@ -266,7 +266,7 @@ def main(
     hashes: list[str],
     splits: list[str],
     tokenizer_name: str,
-    dataset_type: Literal['preference', 'single_prompt', 'verifiable_answers'],
+    dataset_type: Literal['preference', 'single_prompt', 'verifiable_answers', 'vstar'],
     max_length: int = 2048,
     subset: str | None = None,
     token: str | None = None,
