@@ -43,7 +43,7 @@ class UnifiedTokenizedDataset(IterableDataset):
         tokenizer: PreTrainedTokenizerBase,
         max_length: int,
         dataset_type: Literal['preference', 'single_prompt',
-                              'verifiable_answers'],
+                              'verifiable_answers', 'vstar'],
         subset: str | None = None,
         token: str | None = None,
     ):
@@ -77,6 +77,10 @@ class UnifiedTokenizedDataset(IterableDataset):
                     yield result
             elif self.dataset_type == 'verifiable_answers':
                 result = self._process_verifiable_answer_sample(sample)
+                if result is not None:
+                    yield result
+            elif self.dataset_type == 'vstar':
+                result = self._process_vstar_answer_sample(sample)
                 if result is not None:
                     yield result
             elif self.dataset_type == 'classifier':
@@ -169,7 +173,22 @@ class UnifiedTokenizedDataset(IterableDataset):
 
         return prompt_fn, answer_fn
 
-    def _process_verifiable_answer_sample(self, sample: Any):
+    def _process_vstar_answer_sample(self, sample: Any) -> dict:
+        """Process a prompt sample and extract the answer.
+
+        This function is currently hard-coded for the GSM8K dataset.
+
+        Args:
+            sample (Any): a sample from the dataset
+        """
+
+        verifiable_answer = self._process_verifiable_answer_sample(sample)
+        return {
+            **verifiable_answer,
+            'vstar': 0.0,
+        }
+
+    def _process_verifiable_answer_sample(self, sample: Any) -> dict:
         """Process a prompt sample and extract the answer.
 
         This function is currently hard-coded for the GSM8K dataset.
