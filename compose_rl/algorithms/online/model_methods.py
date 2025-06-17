@@ -350,8 +350,7 @@ def policy_loss(
     elif loss_type in ALGORITHM_TYPE.REGRESSION:
         print("="* 10 + "Inside Model Methods Loss" + "="*10)
         print(f"Batch Keys: {batch.keys()}")
-        for k, v in batch.items():
-            print(f"{k}: {v.shape}")
+        print(batch['vstar'].shape)
 
         print(f"Output Keys: {outputs.keys()}")
         for k, v in outputs.items():

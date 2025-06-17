@@ -40,6 +40,7 @@ def prompt_dataset_collate_fn(
         mlm_probability=0.0,
     )
 
+
     keys = batch[0].keys()
     collated_batch: dict[str, torch.Tensor] = {}
     for key in keys:
@@ -50,7 +51,10 @@ def prompt_dataset_collate_fn(
         if key == 'prompt_id':
             collated_batch[key] = torch.tensor(cur_values)
             continue
-        if key in ['verified_answer', 'vstar']:
+        if key == 'vstar':
+            collated_batch[key] = torch.tensor(cur_values)
+            continue
+        if key in ['verified_answer']:
             collated_batch[key] = list(  # pyright: ignore[reportGeneralTypeIssues]
                 utils.flatten(cur_values),
             )
@@ -127,19 +131,7 @@ class PromptStreamingDataset(StreamingDataset):
         
         #vstar
         vstar = sample.get('vstar', None)
-        if vstar:
-            if isinstance(vstar, float):
-                _answer = vstar
-            else:
-                try:
-                    _answer = float(vstar)
-                    #verified_answer.decode('utf-8', errors='strict')
-                except Exception as e:
-                    log.error(
-                        f'Failed to extra vstar values: {e}',
-                    )
-                    _answer = 0
-
-            item_dict['vstar'] = _answer  # type: ignore
+        if vstar is not None:
+            item_dict['vstar'] = torch.Tensor([vstar])
 
         return item_dict

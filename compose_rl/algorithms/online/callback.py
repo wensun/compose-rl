@@ -590,10 +590,6 @@ class OnPolicyCallback(CallbackWithConfig):
 
         batch = self._get_next_iter_prompts()
 
-        print('%'*10 + "batch iteration start\n\n")
-        print(batch.keys())
-        print('%'*10 + "batch iteration start\n\n")
-
         batch = state.device.batch_to_device(batch)
 
         if self.vllm_engines is not None:
@@ -639,9 +635,6 @@ class OnPolicyCallback(CallbackWithConfig):
         batches = [
             self._get_single_batch_prompts() for _ in range(n_unique_batches)
         ]
-        print('%'*10 + "get_next_iter_prompts\n\n")
-        print(batches[0].keys())
-        print('%'*10 + "get_next_iter_prompts\n\n")
 
         ret_batch = {}
         for key in batches[0].keys():
