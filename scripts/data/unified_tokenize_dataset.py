@@ -283,6 +283,11 @@ def main(
             'prompt': 'bytes',
             'verified_answer': 'str',
         },
+        'vstar': {
+            'prompt': 'bytes',
+            'verified_answer': 'str',
+            'vstar': 'float32',
+        },
         'classifier': {
             'input': 'bytes',
             'label': 'bytes',
@@ -357,6 +362,7 @@ if __name__ == '__main__':
             'single_prompt',
             'classifier',
             'verifiable_answers',
+            'vstar',
         ],
         required=True,
         help='Type of dataset to process',

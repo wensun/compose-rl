@@ -92,6 +92,7 @@ variables:
   gamma: 1
   lambda_gae: 1
 
+  num_train_nodes: 1
   num_batches_per_update: 4
   generations_per_prompt: 1
   device_generate_batch_size: 1
@@ -125,7 +126,7 @@ algorithms:
     clipping_type: norm
     clipping_threshold: 1.0e-02
 
-autoresume: true
+autoresume: false
 save_folder: null  # TODO: fill this in
 save_overwrite: true
 save_interval: 25iter
@@ -147,7 +148,7 @@ fsdp_config:
 train_loader:
   name: prompt
   dataset:
-    local: /tmp/dataset/prompt/
+    local: data/gsm8k
     split: train
     # remote:
     shuffle: true
