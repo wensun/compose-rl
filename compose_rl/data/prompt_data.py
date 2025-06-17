@@ -124,5 +124,22 @@ class PromptStreamingDataset(StreamingDataset):
                     _answer = ''
 
             item_dict['verified_answer'] = _answer  # type: ignore
+        
+        #vstar
+        vstar = sample.get('vstar', None)
+        if vstar:
+            if isinstance(vstar, float):
+                _answer = vstar
+            else:
+                try:
+                    _answer = float(vstar)
+                    #verified_answer.decode('utf-8', errors='strict')
+                except Exception as e:
+                    log.error(
+                        f'Failed to extra vstar values: {e}',
+                    )
+                    _answer = 0
+
+            item_dict['vstar'] = _answer  # type: ignore
 
         return item_dict
